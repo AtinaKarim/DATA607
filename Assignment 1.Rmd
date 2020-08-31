@@ -16,27 +16,35 @@ Data Dictionary: https://github.com/fivethirtyeight/data/tree/master/bachelorett
 
 
 #Code 
-```{r} #Installing the Packages Required for Transformation and Analysis
-install.packages("RCurl")
-install.packages("devtools")
-install.packages("plyr")
+```{r Installing the Packages Required for Transformation and Analysis}
 library(devtools)
 library(RCurl)
-library (plyr)
 ```
 #Getting the data from the site 
-```{r}
+```{r extract}
+library(RCurl)
 x <- getURL("https://raw.githubusercontent.com/fivethirtyeight/data/master/bachelorette/bachelorette.csv")
 y <- data.frame(read.csv(text=x))
 summary(y)
 ```
 #Creating a subset of the data to show only the contestants from Season 13
-```{r} Season13 <- subset(y, SEASON==13)
+```{r subset} 
+Season13 <- subset(y, SHOW == 'Bachelor' & SEASON==13)
 summary(Season13)
 ```
-#Renaming the columns for readability
-```{r}
-head(rename(y,c("ELIMINATION.1"="ELIMINATED IN WEEK 1?","ELIMINATION.2"="ELIMINATED IN WEEK 2?","ELIMINATION.3"="ELIMINATED IN WEEK 3?","ELIMINATION.4"="ELIMINATED IN WEEK 4?","ELIMINATION.5"="ELIMINATED IN WEEK 5?","ELIMINATION.6"="ELIMINATED IN WEEK 6?", "ELIMINATION.7"="ELIMINATED IN WEEK 7?", "ELIMINATION.8"="ELIMINTAED IN WEEK 8?", "ELIMINATION.9"="ELIMINATED IN WEEK 9?","ELIMINATION.10"="ELIMINATED IN WEEK 10?")))
+#Renaming the columns
+```{r rename}
+library (dplyr)
+Season13 <-
+head (rename (Season13,c("ELIMINATED IN WEEK 1 "="ELIMINATION.1","ELIMINATED IN WEEK 2 "="ELIMINATION.2","ELIMINATED IN WEEK 3 "="ELIMINATION.3","ELIMINATED IN WEEK 4 "="ELIMINATION.4","ELIMINATED IN WEEK 5 "="ELIMINATION.5","ELIMINATED IN WEEK 6 "="ELIMINATION.6","ELIMINATED IN WEEK 7 "="ELIMINATION.7","ELIMINATED IN WEEK 8 "="ELIMINATION.8","ELIMINATED IN WEEK 9 "="ELIMINATION.9","ELIMINATED IN WEEK 10 "="ELIMINATION.10")))
+```
+
+```{r exploring the dataframe}
+summary(Season13)
+glimpse(Season13)
+```
+```{r name of contestants in s13}
+Season13$CONTESTANT
 ```
 #FURTHER ANALYSIS
 In this assignment, I have created a subset of the main dataset to only show us data for season 13. In addition, I have also renamed the column names for improved readability.
