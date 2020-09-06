@@ -55,7 +55,7 @@ dbListTables(con)
 movie <- dbGetQuery(con,"Select * from move_ratings")
 ```
 ## Looking at the summary statistics for our table
-```{r list tables}
+```{r}
 summary(movie)
 ```
 
