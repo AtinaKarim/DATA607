@@ -1,0 +1,126 @@
+---
+title: "Week 2 - R AND SQL"
+output: html_document
+---
+**INTRODUCTION**
+This assignment seeks to analyze the survey results for Movie Ratings[https://forms.office.com/Pages/DesignPage.aspx#FormId=kWzHivHn_0GonDVTstosFy21RPhPWa5LjqJ9wEetESxUN0dRNTRYTk8yUDE1R1dNUVdJM0RWRU9DWS4u].
+
+The survey asked the respondents to rate six recent movies(Knives Out, Little Women, Parasite, Toy Story 4, Jumanji: The Next Level and Once Upon a Time in Hollywood) on a scale of 1-5 (5=Really Liked it, 1= Did not Like it at all). They also had the option to
+select 'Did Not Watch' if they hadn't watched the movie. The survey also required the respondents to indicate their preferred genre of film.
+
+In addition to drawing insights about my friends' movie preferences, I would also like to use the findings from this analysis to identify movies they may like despite not having seen them.
+
+
+#SQL
+I used PostgreSQL to create the database and the table:
+
+##Code for Creating the Database in SQL Shell:##
+CREATE DATABASE DATA607;
+
+##Code for Creating the table:##
+CREATE TABLE MOVIE_RATINGS(
+ID int NOT NULL, Name char (255), KnivesOut_Rating int, Once_Upon_a_Time_in_Hollywood_Rating int, Comments varchar(255), PreferredGenre varchar(255));
+
+*Before loading the results file into the table, I removed the value 'Did not watch' from the ratings column*
+
+##Code for populating the table from the survey:
+COPY movie_ratings
+FROM 'C:\Users\Atina.Karim\Desktop\DATA607\MovieRatings.csv' 
+DELIMITER ',' 
+CSV HEADER;
+
+#R
+##Connecting to PostGreSQL
+```{r}
+library(DBI)
+
+db <- 'data607'  #provide the name of your db
+
+host_db <-  'localhost'
+
+db_port <- '5432'  
+
+db_user <- 'postgres'
+
+db_password <- ''
+
+con <- dbConnect(RPostgres::Postgres(), dbname = db, host=host_db, port=db_port, user=db_user, password=db_password)  
+```
+##Listing the tables in the database
+```{r list tables}
+dbListTables(con) 
+```
+
+```{r}
+movie <- dbGetQuery(con,"Select * from move_ratings")
+```
+## Looking at the summary statistics for our table
+```{r list tables}
+summary(movie)
+```
+
+#WHICH MOVIE RECEIVED THE HIGHEST AVERAGE RATING?
+By looking at the averages and medians, we can see that Parasite was rated the highest, followed by Little Women, Knives Out, Toy Story 4, Once Upon a Time in Hollywood and then Jumanji.
+
+#WHICH MOVIE DID ALL THE RESPONDENTS WATCH?
+Knives Out is the only movie that all the respondents seem to have seen (no NAs).
+
+
+##What is the preferred genre of film among my friends?
+```{r}
+library(ggplot2)
+barplot(table(movie$preferredgenre),
+main='Genre',
+col='red3')
+```
+
+Thriller seems to be the preferred genre of film among my friends. This may also provide insight into why Parasite (which is a thriller) was so highly rated among the respondents. This may also explain why Knives Out (also a thriller) was watched by all (and also highly rated).
+
+However, I know more than 2 respondents put down thriller as their preferred genre. So why is the chart only showing a frequency of 2? This maybe because of two of the respondents put down other variations of thriller (such as 'suspense')as their preferred genre so for the purpose of this analysis, I will change the genre for this respondent to Thriller.
+
+```{r}
+movie$preferredgenre  <- ifelse(movie$preferredgenre   == "Old Hollywood, 70-80s romantic comedies, Thai horror, Cantonese thrillers"
+, "Thriller", movie$preferredgenre)
+```
+```{r}
+movie$preferredgenre  <- ifelse(movie$preferredgenre   == "Suspense","Thriller", movie$preferredgenre)
+```
+Lets see if this changes the numbers in the barplot.
+```{r}
+library(ggplot2)
+barplot(table(movie$preferredgenre),
+main='Genre',
+col='red3')
+```
+The number for thriller has now jumped up to 4.
+
+#Recommendation Analysis
+Among my friends who liked Thriller, I would like to see how many of them watched Little Women (movie with the most missing ratings)
+
+```{r}
+library(sqldf)
+LittleWomen <- sqldf("SELECT count(LittleWoman_Rating)
+                FROM movie
+               WHERE preferredgenre='Thriller'")
+glimpse(LittleWomen)
+```
+
+Looks like only one of them did not watch Little Women. Now I would like to see which friend this is:
+
+```{r}
+DidNotWatchLittleWomen <- sqldf("SELECT NAME
+                FROM movie
+               WHERE preferredgenre='Thriller'
+               AND LittleWoman_Rating IS NULL")
+```
+
+Looks like Faizaa Fatima did not watch Little Women.Before I recommend the movie to her, I would like to see what other thriller lovers rated the movie on an average:
+
+```{r}
+AverageLW<- sqldf("Select avg(LittleWoman_Rating)
+                  FROM movie 
+                  WHERE    preferredgenre='Thriller'")
+glimpse(AverageLW)
+```
+Looks like it got a rating of 5 on an average from those who like Thriller. So I would recommend Little Women to Faizaa as well.
+
