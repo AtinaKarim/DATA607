@@ -1,0 +1,124 @@
+---
+title: "Week 5 Assignment"
+author: "Atina Karim"
+date: "9/26/2020"
+output: html_document
+---
+# OVERVIEW
+
+For this assignment, I created a wide table, with the arrival data for AM West and Alaska, in Postgresql for further transformation and analysis.
+
+
+# DATA TRANSFORMATION
+
+## 1. Load Libraries
+```{r load libraries}
+library(tidyverse)
+library(DBI)
+```
+
+## 2. Connecting to Postgresql
+Results are hidden as it contains db access info.
+```{r, include=FALSE}
+db <- 'data607'
+host_db <- 'localhost'
+db_port <- '5432'
+db_user <- ''
+db_password <- ''
+con <- dbConnect (RPostgres::Postgres(),dbname = db, host=host_db, port=db_port, user=db_user, password=db_password)
+```
+## 3. Listing the table in the db
+```{r list tables}
+dbListTables(con)
+```
+## 4. Extracting the data from the db
+```{r getting data}
+Data <- dbGetQuery(con,"Select * from Arrivals")
+```
+
+## 5. Putting the data into a dataframe
+```{r create a dataframe}
+Df <- data.frame(Data)
+```
+
+
+## 6. Converting data from wide to long
+```{r wide to long}
+df <- Df %>%
+  gather(Destination,flights,
+         Los.Angeles,
+        Phoenix,
+        San.Diego,
+        San.Francisco,
+        Seattle)
+df
+```
+# ANALYSIS
+
+## On Average, which airline has had more on-time flights?
+```{r}
+OT <- df %>%
+  group_by(Airline) %>%
+  filter(Delays == 'On-Time'|Delays == "On time" ) %>%
+  summarize(average_ot=mean(flights))
+ 
+
+```
+```{r}
+ggplot(OT)+
+  geom_col(mapping=aes(x=Airline,y=average_ot,fill=Airline))+
+ggtitle("On Time Flights by Airline")
+  
+```
+AM West seems to have more on-time arrivals than Alaska.
+
+## Which airline has more on-time arrivals per city?
+
+```{r}
+OTCity <- df %>%
+  group_by(Airline,Destination) %>%
+  filter(Delays == 'On-Time'|Delays == "On time" ) %>%
+  summarize(flights)
+```
+```{r}
+ggplot(OTCity)+
+  geom_col(mapping=aes(x=Destination,y=flights,fill=Airline))+
+ggtitle("On Time Flights by Airline Per City")
+```
+
+Looks like AM West has had more on-time arrivals than Alaska in each city as well,except for in SF and Seattle. 
+
+# **PARADOX**
+
+## Does AM West have more delays as well?
+
+
+
+```{r delay}
+ df %>%
+  group_by(Airline) %>%
+  filter(Delays == 'Delayed' ) %>%
+  summarize(average_ot=mean(flights))
+ 
+```
+It looks like AM West has more delays as well overall. What about per city:
+
+```{r delay city}
+DelayCity <- df %>%
+  group_by(Airline,Destination) %>%
+  filter(Delays == 'Delayed' ) %>%
+  summarize(flights)
+```
+
+```{r}
+arrange(DelayCity,flights)
+```
+Seems like AM West has more delays per city as well.
+
+## **Explanation**
+AM West offers more flights than Alaska, which may explain why it has more of both on-time arrivals and delayed arrivals.
+```{r}
+df %>%
+  group_by(Airline) %>%
+  summarize(ot_flights=sum(flights))
+```
