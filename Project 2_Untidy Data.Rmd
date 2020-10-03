@@ -1,0 +1,280 @@
+---
+title: "Project 2 Uber Segment Adjusted EBITDA (2018-2020)"
+author: "Atina Karim,Rachel Greenlee, Douglas Barley"
+date: "10/2/2020"
+output: 
+ html_document:
+  toc: true
+  toc_float: true
+  toc_depth: 3
+  df_print: paged
+  theme: united 
+---
+# 1. Introduction
+
+Founded in 2009, Uber is a leading technology platform that primarily offers its end users the ability to connect with independent providers of ride services and food delivery service providers.Uber also leverages this same network to connect shippers with carriers in the freight industry.
+
+In less than a decade, Uber has grown to to become a prominent sharing economy service provider. As of 2019, Uber has about 110 million users (monthly) in the US and has generated around 14.1 billion USD in net revenue *(Statista, 2020)*.
+
+In this analysis, we do a deep dive of Uber's adjusted EBITDA (USD)in millions broken down by its five major segments - rides, eats, freight, other bets (multiple investment stage offerings) and ATG (development and commercialization of autonomous vehicles). Through our analysis, we seek to understand what are the most and least profitable segments for Uber.
+
+# 2. Data
+
+## 2.1 Dataset
+
+The dataset titled 'Uber Adjusted EBITDA by segment, USD Millions' was posted in the discussion board by Diego Correa. Segment Adjusted EBITDA is defined as revenue less specific expenses *(Uber Annual Report, 2020)*.
+
+The data ranges from Q1 2018-Q1 2020.
+
+It is a wide dataset with 9 rows:
+
+1. Quarter and Year
+2. Rides 
+3. Eats
+4. Core Platform (combination of rides and eats prior to Q3 2018)
+5. Other inc/Freight (combination of Freight and other bets  prior to Q3 2018)
+6. Freight
+7. Other (Other bets)
+8. ATG
+9. Corporate G&A and Platform R&D 
+
+While columns 2-3 contain the earning information by segment, column 9 reflect the costs or expenses to be subtracted from the total earnings from the previous columns.
+
+Unreported data is denoted by 'X', however, there is missing data in the table as well (such as Ride and Eats does not have any data for Q1 2018 and Q2 2018 as the earnings are reflected under Core Platform).
+
+The original dataset is from Mansoor Iqbal's 2020 report titled 'Uber Revenue and Usage Statistics' published by Business of Apps.
+[link](https://www.businessofapps.com/data/uber-statistics/#7)
+
+## 2.2 Data Preparation
+
+I recreated the data set in a SQL DB implemented in Azure. I used the create table statement to create the table and the insert into statement to insert the values into the table.
+
+There's an additional ID column in the table. I used 0 to denote blank data. Moreover, because the data type for the segment columns is integer, instead of X for unreported data I used 2.
+
+## 2.3 Data cleaning in R
+
+### 2.3.1. Load Libraries
+```{r load libraries}
+library(odbc)
+library(DBI)
+library (tidyverse)
+library(ggplot2)
+```
+
+### 2.3.2 Connecting to Azure
+Code is hidden in Rpubs since it contains access information
+```{r, include=FALSE}
+my_connection <- dbConnect(drv = odbc::odbc(),
+                           Driver = "SQL Server",
+                           server = "data607.database.windows.net",
+                           database = "Project2",
+                           uid = "",
+                           pwd = "")
+
+```
+### 2.3.3. Listing the table in the db
+```{r list tables}
+
+Data <- dbGetQuery(my_connection,"Select * from Uber")
+
+```
+```{r table-uber}
+knitr::kable(Data,caption='Uber Stats')
+```
+### 2.3.4. Converting to a tibble
+
+```{r tibble}
+Data_Tibble <-as_tibble(Data)
+Data_Tibble
+
+```
+
+### 2.3.5. Splitting the quarter and year column
+One of the analysis requested by Diego, is to look at the adjusted EBITDA by year.However, the dataset in its current format, contains the information for both the quarter and year in one column - quarter.
+
+```{r splitting column}
+ Data_Tibble <- Data_Tibble <- separate(Data_Tibble,Quarter,c('Quarter','Year'), ' ' )
+  
+```
+### 2.3.6. Dissolving the Core Platform Column
+
+The core platform column reflects the sum of earnings from rides and eats prior to Q3 2018. Since we are looking at the adjusted EBITDA broken down by the segments as of today, it would be more accurate to take the earning for Q1 and Q2 2018 under Core Platform and divide them accordingly between rides and eats. However, we do not have the information to determine how to divide the sum of earnings between the two segments. 
+
+What we could do is determine the % of total earnings from rides and eats , from Q3 2018 on ward and then apply the average % to the sum of earnings in Core Platforms to get the numbers for each of the segments prior to Q3 2018. 
+```{r Ride Percent}
+RidePercent <-(Data_Tibble$Rides/(Data_Tibble$Eats+Data_Tibble$Rides))
+mean(RidePercent,na.rm=TRUE)
+```
+Rides accounts for 0.99 or 99% of sum of earning from rides+eats.
+```{r Eats Percent}
+EatsPercent <- (Data_Tibble$Eats/(Data_Tibble$Eats+Data_Tibble$Rides))
+mean(EatsPercent,na.rm=TRUE)
+```
+Eats accounts for less than 1% of total earnings.
+We can now apply these percents to earnings reported in core_platform prior to Q1 and Q2 in 2018. For our analysis well round this mean to 0.01.
+```{r Rides}
+Data_Tibble$Rides <-ifelse(Data_Tibble$Quarter=='Q1'&Data_Tibble$Year==2018,0.99*Data_Tibble$Core_Platform,Data_Tibble$Rides)
+Data_Tibble$Rides <-ifelse(Data_Tibble$Quarter=='Q2'&Data_Tibble$Year==2018,0.99*Data_Tibble$Core_Platform,Data_Tibble$Rides)
+Data_Tibble$Rides
+```
+```{r Eats}
+Data_Tibble$Eats <-ifelse(Data_Tibble$Quarter=='Q1'&Data_Tibble$Year==2018,0.01*Data_Tibble$Core_Platform,Data_Tibble$Eats)
+Data_Tibble$Eats <-ifelse(Data_Tibble$Quarter=='Q2'&Data_Tibble$Year==2018,0.01*Data_Tibble$Core_Platform,Data_Tibble$Eats)
+Data_Tibble$Eats
+```
+```{r dropping Core Platform}
+Data_Tibble <-select(Data_Tibble,-Core_Platform)
+```
+We'll do the same with the Other_Inc_Freight column, which is a combination of earning from Freight and Other bets prior to Q3 2018 and also in Q2 2019.
+
+```{r FreightPercent}
+FreightPercent <-(Data_Tibble$Freight/(Data_Tibble$Freight+Data_Tibble$Other))
+mean(FreightPercent,na.rm=TRUE)
+```
+
+```{r OtherPercent}
+OtherPercent <-(Data_Tibble$Other/(Data_Tibble$Freight+Data_Tibble$Other))
+mean(OtherPercent,na.rm=TRUE)
+```
+```{r OtherBets}
+Data_Tibble$Other <-ifelse(Data_Tibble$Quarter=='Q1'&Data_Tibble$Year==2018,0.5*Data_Tibble$Other_Inc_Freight,Data_Tibble$Other)
+Data_Tibble$Other <-ifelse(Data_Tibble$Quarter=='Q2'&Data_Tibble$Year==2018,0.5*Data_Tibble$Other_Inc_Freight,Data_Tibble$Other)
+Data_Tibble$Other <-ifelse(Data_Tibble$Quarter=='Q2'&Data_Tibble$Year==2019,0.5*Data_Tibble$Other_Inc_Freight,Data_Tibble$Other)
+
+Data_Tibble$Freight <-ifelse(Data_Tibble$Quarter=='Q1'&Data_Tibble$Year==2018,0.49*Data_Tibble$Other_Inc_Freight,Data_Tibble$Freight)
+Data_Tibble$Freight <-ifelse(Data_Tibble$Quarter=='Q2'&Data_Tibble$Year==2018,0.49*Data_Tibble$Other_Inc_Freight,Data_Tibble$Freight)
+Data_Tibble$Freight <-ifelse(Data_Tibble$Quarter=='Q2'&Data_Tibble$Year==2019,0.49*Data_Tibble$Other_Inc_Freight,Data_Tibble$Freight)
+
+Data_Tibble$Freight
+Data_Tibble$Other
+```
+```{r dropping Other Inc/Freight}
+Data_Tibble <-select(Data_Tibble,-Other_Inc_Freight)
+Data_Tibble
+```
+### 2.3.7  Unreported Values
+There are blank values (indicated by a 0) and unreported values (indicated by 2) in the dataset.However, it seems like by getting rid of the Core Platform and Other Inc/Freight columns and assigning the numbers in these columns to other respective columns, have removed all 0s from the dataset. We only have unreported values or 2s in the ATG and Corporate G&A and platform R&D columns which we will convert to NAs:
+
+```{r}
+Data_Tibble$ATG <- ifelse(Data_Tibble$ATG == 2, NA,Data_Tibble$ATG)
+Data_Tibble$Corporate_GA_Platform_RD<- ifelse(Data_Tibble$Corporate_GA_Platform_RD == 2, NA,Data_Tibble$Corporate_GA_Platform_RD)
+Data_Tibble
+```
+### 2.3.8 Converting the dataset from wide to long
+
+We will create a column called segments where we will list the 5 segments and another column to house their values called earnings. 
+
+```{r wide to long}
+Data_Tibble <- Data_Tibble %>%
+  gather(Segment,Earnings,
+         Rides,
+        Eats,
+        Other,
+        ATG,
+        Freight)
+```
+Since Corporate_GA_Platform_RD reflects the expenses we will keep this column separate but just rename it to Expense.
+
+```{r}
+Data_Tibble <- Data_Tibble %>%
+  rename(Expense=Corporate_GA_Platform_RD)
+```
+For improved readability, we'll reorganize the columns.
+```{r}
+Data_Tibble <- Data_Tibble %>% relocate(Expense, .after=Earnings)
+
+```
+### 2.3.9 Adding the adjusted EBITDA column
+
+For the sake of this analysis, we will assume that Adjusted EBITDA is earnings-expense. However, expenses are listed in negatives in this dataset. Does this mean that there were negative expenses for Uber during the time frame? Most likely not, therefore I am assuming that because the table reflects earnings, costs are listed as negative earnings in this table. So the calculation for our new column is earnings+expense.
+```{r}
+Data_Tibble["Adjusted_EBITDA"]<-Data_Tibble$Earnings+Data_Tibble$Expense
+
+```
+Our data is now ready for analysis
+```{r}
+knitr::kable(Data_Tibble, caption="Uber Adjusted EBITDA")
+```
+# Analysis
+
+## Uber's Adjusted EBITDA by Segment (for all years)
+First I would like to see which, which segments have been high and low performers within our time frame
+
+I will sum up the adjusted EBITDA by segment first:
+
+```{r}
+do <- Data_Tibble %>%
+  group_by(Segment) %>%
+  summarize(sum_ebitda=sum(Adjusted_EBITDA, na.rm=TRUE))
+do
+```
+Visualizing the data in the table above:
+```{r}
+ggplot(data=do, aes(x=Segment,y=sum_ebitda, fill=Segment))+geom_col()+geom_text(label=(do$sum_ebitda))+
+                                          ggtitle("Adjusted EBITDA by Segment")
+```
+
+Looks like all of the segments incurred a negative EBITDA (loss). This is rather surprising  because we were expecting Uber Rides to incur a positive EBITDA. Unsurprisingly, Uber Rides  is seems to be performing better than the other segments in terms of EBITDA, while Eats the worst. The latter is also surprising to me because Eats is probably Uber's second most well-known platform.
+
+However, it is also important to consider that the sample size for each segment is most likely not the same i.e. there maybe a significantly higher amount of bookings for eats than for freights, therefore the adjusted EBITDA should be relative. Unfortunately, we could not find the required data to compare the earnings in relative terms.
+
+## Uber's Adjusted EBITDA by Year
+I would also like to see what the year over year trend has been for Uber's EBITDA:
+
+```{r}
+yr <- Data_Tibble %>%
+  group_by(Year) %>%
+  summarize(sum_ebitda=sum(Adjusted_EBITDA, na.rm=TRUE))
+yr
+```
+```{r}
+ggplot(data=yr, aes(x=Year,y=sum_ebitda))+geom_col()+ geom_text(label=(yr$sum_ebitda))+
+  ggtitle("Adjusted EBITDA by Year")
+```
+We will ignore 2020 for now as it only reported earnings for Q1. However, it seems like losses are increasing(earnings are falling) from 2018 to 2019.
+Let's see how the earnings were broken down by quarter:
+
+```{r}
+dg <- Data_Tibble %>%
+  group_by(Year,Quarter) %>%
+  summarize(sum_ebitda=sum(Adjusted_EBITDA, na.rm=TRUE))
+dg
+```
+```{r}
+ggplot(data=dg, aes(x=Year,y=sum_ebitda,fill=Quarter))+geom_col()+ 
+  ggtitle("Adjusted EBITDA by Year")
+```
+It looks like the losses are increasing progressively by quarter-however Q2 of 2019 is an anomaly with the earnings suddenly going up to 0, and then goes back down in Q3 2019.
+
+## Uber Adjusted EBITDA by Segment and Year
+The original analysis proposed by Diego was to see if there is a yearly trend in adjusted EBITDA for Uber broken down by segment:
+```{r}
+dt <- Data_Tibble %>%
+  group_by(Segment,Year) %>%
+  summarize(sum_ebitda=sum(Adjusted_EBITDA, na.rm=TRUE))
+dt
+```
+```{r}
+ggplot(dt,aes(x=Year,y=sum_ebitda,fill=Segment))+
+  geom_col()+
+  facet_wrap(~Segment)+labs(title="Adjusted EBITDA by Segment by Year")+
+  geom_text(label=(dt$sum_ebitda),size=2)
+```
+It looks like the yearly trend we observed before(increasing losses from 2018 to 2019) still holds for all segments except for Rides, where losses seem to be falling (earnings increasing). Once again we will have to look at the sample size or the number the transactions within this time frame for each sector to fully determining the accuracy of our insights.
+
+# Conclusion
+
+According to our analysis, Uber's adjusted EBITDA appears to be falling continuously (incurring losses) across all segments, except for Rides, from 2018 to 2019. However, although rides while earnings for rides seem to have increased from 2018-19, as of Q1 2020, Rides is still incurring losses.
+
+Given that Uber is reputed to have significant market share of the ride-hailing industry, the findings of our exploratory analyses indicate that Uber has not been profitable since 2018. However, in this regard, it is also important to note that our analysis was limited to just one dataset - we think if we had the transactions data for each segment for the same time line, the results could have differed. Also we treated corporate G&A and platform R&D as an expense for the sake of our analysis as we could not find any literature explaining its inclusion in the dataset ( it is not one of the identified segments).
+
+Moreover, it is also noteworthy that segment adjusted EBITDA excludes any non-cash items, transactions that are not indicative of ongoing segment operating performance or items that are not reflective of ongoing core operations.
+
+As next steps, we recommend doing a deeper dive into why the segments are incurring losses with additional data sets from Uber that could further enhance the analysis.
+
+# References
+Uber Technologies. (2020, September 23). Statista.
+
+Uber Revenue and Usage Statistics (2020). (2020, August 29). Business of Apps. https://www.businessofapps.com/data/uber-statistics/
+
+Uber Technologies. (2020, June 1). Uber 2019 Annual Report.
