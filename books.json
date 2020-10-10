@@ -1,24 +1,23 @@
-{"Fantasy": 
-    {"book": [
-        {
-            "title": "The Lord of the Rings",
-            "publisher": "Allen & Unwin",
-            "year": "1954",
-            "author":" J.R.R. Tolkien"
-        },
-        {
-           "title": "A Game of Thrones",
-            "publisher": "Bantam Books",
-            "year": "1996",
-            "author": "George R.R. Martin"
-        },
-        {
-            "title": "Windhaven",
-            "publisher": "Timescape Books",
-            "year": "1981",
-            "author": [
-                "George R.R. Martin",
-                "Lisa Tuttle"]
-        }
-    ]}
-}
+[
+    {
+        "genre": "Fantasy",
+        "title": "The Lord of the Rings (The Lord of the Rings #1-3)",
+        "author": "J.R.R. Tolkien",
+        "publisher": "Allen & Unwin",
+        "year": "1954"
+    },
+    {
+        "genre": "Fantasy",
+        "title": "A Game of Thrones",
+        "author": "George R.R. Martin",
+        "publisher": "Bantam Books",
+        "year": "1996"
+    },
+    {
+        "genre": "Fantasy",
+        "title": "Windhaven",
+        "author": "George R.R. Martin",
+        "publisher": " Lisa Tuttle",
+        "year": "Timescape Books"
+    }
+]
