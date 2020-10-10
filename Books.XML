@@ -40,12 +40,5 @@
                 <pages>365</pages>
                 <author>George R.R. Martin</author>
             </book>
-            <book id="3">
-                <title>Windhaven</title>
-                <publisher>Timescape Books</publisher>
-                <year>1981</year>
-                <author id="1">George R.R. Martin</author>
-                <author id="2">Lisa Tuttle</author>
-            </book>
     </area>
 </Novels>
