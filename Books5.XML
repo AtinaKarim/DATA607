@@ -1,6 +1,5 @@
 
-<books>
-    <area id="1">
+<books>       
         <genre>Fantasy</genre>
             <book id="1">
                 <title>The Lord of the Rings</title>
@@ -21,5 +20,4 @@
                 <author id="1">George R.R. Martin</author>
                 <author id="2">Lisa Tuttle</author>
 </book>
-    </area>
 </books>
