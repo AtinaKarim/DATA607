@@ -1,41 +1,25 @@
 
-<textbooks>
+<books>
     <area id="1">
-        <subject>Mathematics</subject>
+        <genre>Fantasy</genre>
             <book id="1">
-                <title>Applied Linear Statistical Models</title>
-                <publisher>McGraw Hill</publisher>
-                <isbn>9780073108742</isbn>
-                <pages>1396</pages>
-                <author id="1">Michael Kutner</author>
-                <author id="2">William Li</author>
-                <author id="3">Christopher Nachtsheim</author>
-                <author id="4">John Neter</author>
-                <attribute id="1">Exercises</attribute>
-                <attribute id="2">Illustrations</attribute>
-                <attribute id="3">Readability</attribute>
+                <title>The Lord of the Rings</title>
+                <publisher>Allen and Unwin</publisher>
+                <year>19542</year>
+                <author id="1">J.R.R. Tolkien</author>
             </book>
             <book id="2">
-                <title>Mathematical Proofs: A Transition to Advanced Mathematics</title>
-                <publisher>Pearson</publisher>
-                <isbn>9780321390530</isbn>
-                <pages>365</pages>
-                <author id="1">Gary Chartrand</author>
-                <author id="2">Ping Zhang</author>
-                <author id="3">Albert Polimeni</author>
-                <attribute id="1">Exercises</attribute>
-                <attribute id="2">Readability</attribute>
+                <title>A Game of Thrones</title>
+                <publisher>Bantam Books</publisher>
+                <year>1996</year>
+                <author id="1">George R.R. Martin/author>
             </book>
             <book id="3">
-                <title>Mathematical Statistics with Resampling and R</title>
-                <publisher>Wiley</publisher>
-                <isbn>9781118029855</isbn>
-                <pages>418</pages>
-                <author id="1">Laura Chihara</author>
-                <author id="2">Tim Hesterberg</author>
-                <attribute id="1">Exercises</attribute>
-                <attribute id="2">Illustrations</attribute>
-                <attribute id="3">Readability</attribute>
-            </book>
+                <title>Windhaven</title>
+                <publisher>Timescape Books</publisher>
+                <year>1981</year>
+                <author id="1">George R.R. Martin</author>
+                <author id="2">Lisa Tuttle</author>
+
     </area>
-</textbooks>
+</books>
