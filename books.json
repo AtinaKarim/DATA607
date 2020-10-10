@@ -1,0 +1,24 @@
+{"Fantasy": 
+    {"book": [
+        {
+            "title": "The Lord of the Rings",
+            "publisher": "Allen & Unwin",
+            "year": "1954",
+            "author":" J.R.R. Tolkien"
+        },
+        {
+           "title": "A Game of Thrones",
+            "publisher": "Bantam Books",
+            "year": "1996",
+            "author": "George R.R. Martin"
+        },
+        {
+            "title": "Windhaven",
+            "publisher": "Timescape Books",
+            "year": "1981"
+            "author": [
+                "George R.R. Martin",
+                "Lisa Tuttle"
+        }
+    ]}
+}
