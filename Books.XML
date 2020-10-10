@@ -22,3 +22,30 @@
         <year>Timescape Books</year>
     </2>
 </root>
+
+
+<Novels>
+    <area id="1">
+        <genre>Fantasy</genre>
+            <book id="1">
+                <title>The Lord of the Rings (The Lord of the Rings #1-3)</title>
+                <publisher>Allen &amp; Unwin</publisher>
+                <year>1954</year>
+                <author>J.R.R. Tolien</author>
+               </book>
+            <book id="2">
+                <title>A Game of Thrones</title>
+                <publisher>Bantam Books</publisher>
+                <year>1996</year>
+                <pages>365</pages>
+                <author>George R.R. Martin</author>
+            </book>
+            <book id="3">
+                <title>Windhaven</title>
+                <publisher>Timescape Books</publisher>
+                <year>1981</year>
+                <author id="1">George R.R. Martin</author>
+                <author id="2">Lisa Tuttle</author>
+            </book>
+    </area>
+</Novels>
