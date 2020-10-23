@@ -1,0 +1,69 @@
+---
+title: "Week 9 assignment"
+author: "Atina Karim"
+date: "10/23/2020"
+output: 
+ html_document:
+  toc: true
+  toc_float: true
+  toc_depth: 3
+  df_print: paged
+  theme: united 
+---
+# *New York Time Movie Reviews*
+
+I am interested in seeing the NYT movie reviews for movies that were released in 2019. I am particularly interested in seeing how many of the movies that were reviewed, were 'critic picks'.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+## Loading librarie
+```{r , message=FALSE}
+library(jsonlite)
+library(dplyr)
+library(stringr)
+library (ggplot2)
+```
+## Fetching the data from the Movie API
+I identified the Movie API from the NYT developer site and got my API key for it. Since I am only interested in looking at the reviews for movies that were released in 2019, I modified the API to only include movies that had an opening date between 2019-01-01 to 2020-01-01.
+```{r}
+
+url <- "https://api.nytimes.com/svc/movies/v2/reviews/search.json?opening-date=2019-01-01;2020-01-01"
+key <- "OkVf8SLjqbsAbQAvVbiJBn6yRY7azROI"
+addurl <- paste0(url, "&api-key=")
+# fetched using json + key call
+data <- fromJSON(paste0(addurl, key))
+summary(data)
+
+
+```
+## Seeing the results as a dataframe
+```{r, warning=FALSE}
+df <- data$results
+knitr:: kable (df)
+```
+I would like to clean the results up a bit and get rid of the last two columns,
+```{r}
+df = subset(df,select=-c(link,multimedia))
+```
+## How many of the movies that released in 2019, were reviewed?
+```{r}
+nrow(df)
+```
+## Out of the 20 movies reviewed, how many of them were picked by critics
+The critics pick column indicates if a movie was picked by critics or not (1=yes,0=no).
+```{r}
+critics_pick <- df %>%
+  filter(critics_pick==1)
+nrow(critics_pick)
+```
+ Out of the 20 movies released in 2019 that were reviewed, only 3 were critic picks.
+ 
+## What were the movies that were picked by the critics?
+ 
+```{r}
+knitr::kable(critics_pick$display_title)
+```
+
+
+
