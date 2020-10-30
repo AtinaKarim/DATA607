@@ -2,8 +2,13 @@
 title: "Week 10 Assignment"
 author: "Atina Karim"
 date: "10/29/2020"
-output: html_document
-bibliography: references.bib 
+output: 
+html_document:
+  toc: true
+  toc_float: true
+  toc_depth: 3
+  df_print: paged
+  theme: united
 ---
 
 ```{r setup, include=FALSE}
@@ -16,8 +21,6 @@ In Text Mining with R, Chapter 2 looks at Sentiment Analysis.  In this assignmen
 Work with a different corpus of your choosing, and
 Incorporate at least one additional sentiment lexicon (possibly from another R package that you’ve found through research).
 As usual, please submit links to both an .Rmd file posted in your GitHub repository and to your code on rpubs.com.  
-
-
 
 # Sentiment analysis with tidy data
 
@@ -63,7 +66,6 @@ tidy_books <- austen_books() %>%
   ungroup() %>%
   unnest_tokens(word, text)
 ```
-Notice that we chose the name word for the output column from unnest_tokens(). This is a convenient choice because the sentiment lexicons and stop word datasets have columns named word; performing inner joins and anti-joins is thus easier.
 
 Now that the text is in a tidy format with one word per row, we are ready to do the sentiment analysis. First, let’s use the NRC lexicon and filter() for the joy words. Next, let’s filter() the data frame with the text from the books for the words from Emma and then use inner_join() to perform the sentiment analysis. What are the most common joy words in Emma?
 ```{r}
@@ -75,7 +77,6 @@ tidy_books %>%
   inner_join(nrc_joy) %>%
   count(word, sort = TRUE)
 ```
-We can also examine how sentiment changes throughout each novel. We can do this with just a handful of lines that are mostly dplyr functions. First, we find a sentiment score for each word using the Bing lexicon and inner_join().
 
 Next, we count up how many positive and negative words there are in defined sections of each book. We define an index here to keep track of where we are in the narrative; this index (using integer division) counts up sections of 80 lines of text.
 Small sections of text may not have enough words in them to get a good estimate of sentiment while really large sections can wash out narrative structure. For these books, using 80 lines works well, but this can vary depending on individual texts, how long the lines were to start with, etc. We then use spread() so that we have negative and positive sentiment in separate columns, and lastly calculate a net sentiment (positive - negative).
@@ -267,8 +268,87 @@ df <- data$results
 knitr:: kable (df)
 ```
 
+### Sentimentr
+We will use the sentimentr package to try to understand the sentiments conveyed in the reviews as a whole.
+The Sentimentr package allows the users to quickly perform sentiment analysis on sentences and it corrects for inversions. It assigns a score from -1 to 1 that indicates whether the sentiment is negative, neutral or positive.
 ```{r}
 library(sentimentr)
 library(data.table)
-sentiments(df$summary_short)
+sentiment <- sentiment_by(df$summary_short)
+View(sentiment)
 ```
+The first column (element_id) in our case are the movies as they appear in the table above. Word_Count is the number of words in each sentences. The sentimentr package looks at each sentence in the review separately and calculates the overall average score and the standard deviation for the reviews. Most of the reviews in our case were one sentence long which is why our sd column is mostly empty.
+
+#### Summarizing the sentiments
+
+I want to convert the average sentiment scores into the following categories: positive, neutral and negative.
+
+```{r}
+#function that generates a sentiment class based on average score
+sentiment_df<- setDF(sentiment)
+get_sentiment_class <- function(ave_sentiment){
+  sentiment_class="Positive"
+if (ave_sentiment < -.3){
+  sentiment_class = "Negative"}
+else if (ave_sentiment<.3){
+  sentiment_class = "Neutral"
+}
+sentiment_class
+}
+```
+
+```{r}
+sentiment_df$ave_sentiment <- 
+  sapply(sentiment_df$ave_sentiment,get_sentiment_class)
+sentiment_df
+```
+```{r}
+ggplot(data=sentiment_df,aes(x=ave_sentiment,fill=ave_sentiment))+geom_bar()
+```
+It seems like most reviews were neutral. However, it is also interesting to see that there were more negative reviews than positive ones.
+
+### Afinn
+
+Let's see if we see similar results with the 'Afinn' lexicon:
+
+```{r}
+x <- tibble (txt=df$summary_short)
+x <-x %>% unnest_tokens(word,txt)
+
+```
+```{r}
+library(plyr)
+y <-join(x,get_sentiments("afinn"),type="inner")
+y
+```
+```{r}
+y_df<- setDF(y)
+get_sentiment_class <- function(value){
+  sentiment_class="Positive"
+if (value < (-3)){
+  sentiment_class = "Negative"}
+else if (value < (3)){
+  sentiment_class = "Neutral"
+}
+sentiment_class
+}
+```
+```{r}
+y_df$value <- 
+  sapply(y_df$value,get_sentiment_class)
+y_df
+```
+```{r}
+ggplot(data=y_df,aes(x=value,fill=value))+geom_bar()
+```
+Even with Afinn, we are seeing more neutral reviews. However, unlike with Sentimentr, Afinn did not detect any negative reviews.
+
+## Which lexicon did you have was most useful for your corpus and why?
+
+I thought the Sentimentr package was more useful for my corpus since it evaluates the entire sentence and is thus able to account for the context in which a word is being used.
+
+Moreover,with Afinn,it seems like we are only limited to the list of words the lexicon contains. It is also interesting to see that Afinn gave the word 'ominous' a positive value.
+
+**References**
+Robinson, Julia Silge and David. “Text Mining with R.” 2 Sentiment Analysis with Tidy Data, 29 Oct. 2020, [www.tidytextmining.com/sentiment.html.](www.tidytextmining.com/sentiment.html. ) 
+
