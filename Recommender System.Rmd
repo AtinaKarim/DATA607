@@ -1,0 +1,88 @@
+---
+title: "Recommender System: Instagram Explore"
+author: "Atina Karim"
+date: "11/4/2020"
+output: 
+  html_document:
+  toc: true
+  toc_float: true
+  toc_depth: 3
+  df_print: paged
+  theme: united 
+---
+# Instagram Explore
+As of January 2020, Instagram has about 1 billion monthly active users (Gotter,2020). Over half of the Instagram community visits [Instagram Explore](https://www.instagram.com/explore/?hl=en) every month to discover new photos, videos, and Stories relevant to their interests. It is also possible for content creators to be discovered by other users through IG explore, but for this discussion, I will only focus on the users that solely consume content on IG.
+
+# 1.Scenario Design
+
+## 1.1 Target Users
+
+Active Instagram users
+
+## 1.2  Key Goals for Users
+
+Presumably to discover new posts or accounts that they might find interesting or relevant
+
+## 1.3 How can the recommender system help the users accomplish their goals?
+
+Instagram explore can help users attain their goals by showing a select number posts that are the most similar to the posts the user has engaged with (liked/shared/commented on) previously.
+
+# 2. Reverse Engineering
+
+The Explore recommendation system has two main stages: the candidate generation stage (also known as sourcing stage) and the ranking stage.
+
+## 2.1 Candidate Generation
+
+Instagram leverages accounts that users have interacted with before to identify which other accounts people might be interested in. After identifying these accounts, they find the media that these accounts posted or engaged with.
+
+Additionally, ineligible posts (identified through a variety of signals) are filtered out before they build out the eligible inventory for each person, sample 500 posts from the eligible inventory, and then send the posts downstream to the ranking stage.
+
+## 2.2 Ranking Stage
+
+The 500 candidates available for ranking are further filtered through a combination of a distillation model,lightweight neural network model and a deep neural network model- to remove misinformation,spam or posts that might violate IG's privacy terms.
+
+The remaining posts are ranked based on how likely a user might postively interact (like/share/save) with the posts through a value model:
+
+**'We combine predictions of different events using an arithmetic formula, called value model, to capture the prominence of different signals in terms of deciding whether the content is relevant. We use a weighted sum of predictions such as [w_like * P(Like) + w_save * P(Save) - w_negative_action * P(Negative Action)]. If, for instance, we think the importance of a person saving a post on Explore is higher than their liking a post, then the weight for the save action should be higher.'** (Facebook,2019)
+
+Finally the top 25 posts are sent to the user's Explore page.
+
+
+# 3. Recommendations
+
+Instagram's explore page seems to focus on findings accounts that people will enjoy first, and then the posts from these accounts. It may be worth using a combination of both posts+accounts based on posts and accounts an individual user has positively interacted with (followed, liked, saved, left a positive comment, etc.)
+
+
+# References:
+
+Facebook AI (2019,November 25).[“Powered by AI: Instagram's Explore Recommender System.”](ai.facebook.com/blog/powered-by-ai-instagrams-explore-recommender-system/)
+
+Vincent, J. (2019, November 25)[Instagram explains how it uses AI to choose content for your Explore tab](https://www.theverge.com/2019/11/25/20977734/instagram-ai-algorithm-explore-tab-machine-learning-method)
+
+Gotter, Ana.(2020,August 4) [The 57+ Instagram Statistics You Need to Know in 2020.](adespresso.com/blog/instagram-statistics/#:~:text=1.)
+
+
+
+
+
+
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
