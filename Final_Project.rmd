@@ -1,0 +1,395 @@
+---
+title: 'Data 607 Final Project: An Analysis of Greenhouse Gas Emissions By Country'
+author: "Atina Karim"
+date: "12/4/2020"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r,warning=FALSE,message=FALSE, echo=FALSE}
+library (dplyr)
+library(readr)
+library(ggplot2)
+library (plotly)
+library(gapminder)
+library(tidyverse)
+library (DBI)  
+library(httr)
+library(shiny)
+library(jsonlite)
+library(DT)
+library(rgdal) 
+library(rmapshaper) 
+library("tm")
+library("SnowballC")
+library("wordcloud")
+library("RColorBrewer")
+
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# **Introduction**
+
+  Human emissions of carbon dioxide and other greenhouse gases – are a primary driver of climate change – and present one of the world’s most pressing challenges. Over the last few decades,global temperatures have risen sharply and subsequently, extreme weather conditions such as heavy rainfall, drought, heatwaves, tropical storms – are becoming more unpredictable, intense and frequent. As a result, there is increased risk of further rapid- and slow-onset hazards including floods, landslides, erosion, wildfires and desertification. At the same time, sea level rise is bringing increased coastal flooding, erosion, soil salinization and the threat of permanent inundation in low-lying areas.
+  
+```{r,messages=FALSE,warning=FALSE,echo=FALSE}
+
+
+json_file <- 'https://datahub.io/core/global-temp/datapackage.json'
+json_data <- fromJSON(paste(readLines(json_file), collapse=""))
+
+# get list of all resources:
+print(json_data$resources$name)
+
+# print all tabular data(if exists any)
+ for(i in 1:length(json_data$resources$datahub$type)){
+  if(json_data$resources$datahub$type[i]=='derived/csv'){
+    path_to_file = json_data$resources$path[i]
+    data <- read.csv(url(path_to_file))
+  }
+ }
+ggplot(data, aes(x = Date, y = Mean)) +
+  geom_line(color="red")+
+  labs(title="Monthly mean temperature anomalies in degrees Celsius relative to a base period") +
+  ylab('Temperature Anomaly') +
+  xlab('Year')
+```
+The [CDP](https://www.cdp.net/en) is an international non-profit organization that drives companies and governments to reduce their greenhouse gas emissions, safeguard water resources, and protect forests. Each year, CDP takes the information supplied in its annual reporting process and scores companies and cities based on their journey through disclosure and towards environmental leadership.The organizations houses the world’s largest, most comprehensive data-set on environmental action. As the data grows to include thousands more companies and cities each year, there is increasing potential for the data to be utilized in impactful ways.  
+
+In this project, I intend to analyze data from the CDP questionnaire to develop methodologies for calculating KPIs for CO2 Emissions. I also leverage external data sources, particularly focusing on extreme weather events, to understand linkages between GHG emissions and climate hazards.I also aim to identify data gaps in the survey  and provide recommendations to the organization on how they can improve the survey for the upcoming years. 
+
+I followed the OSEMN framework for planning and performing the project.
+
+image:![OSEMN](https://miro.medium.com/max/2400/1*eE8DP4biqtaIK3aIy1S2zA.png) 
+
+
+# **Data**
+
+In this analysis, I mainly look at the responses provided by the cities during the CDP surveys from 2018-2020.
+
+I also explore the [National Oceanic and Atmospheric Administration's](https://www.noaa.gov/) Severe Storms Database hosted on Google BigQuery. The database provides preliminary details from US storm as reported by local National Weather Service offices from trained weather spotters. The types of storm data recorded include reports of Tornadoes, Wind, and Hail. 
+  
+*Data*:
+[NOAA Severe Storm Event Details](https://console.cloud.google.com/marketplace/product/noaa-public/severe-storm-events)
+[CDP Cities](https://www.kaggle.com/c/cdp-unlocking-climate-solutions/data)
+
+I used the OSEMN workflow to inform project planning.
+
+image: ![OSEMN](https://miro.medium.com/max/3870/1*eE8DP4biqtaIK3aIy1S2zA.png)
+
+# **Obtaining the data**
+## CDP Cities Responses
+
+I downloaded the cities responses (2018-2020) from the Kaggle location above as a CSV and stored it in my local machine. Due to the size of the files, I was not able to upload it properly onto my Github. 
+```{r, message=FALSE, echo=FALSE}
+cities2018 <- read_csv("/Users/atinakarim/Desktop/cdp-unlocking-climate-solutions 2/Cities/Cities Responses/2018_Full_Cities_Dataset.csv")
+cities2019 <- read_csv("/Users/atinakarim/Desktop/cdp-unlocking-climate-solutions 2/Cities/Cities Responses/2019_Full_Cities_Dataset.csv")
+cities2020 <- read_csv("/Users/atinakarim/Desktop/cdp-unlocking-climate-solutions 2/Cities/Cities Responses/2020_Full_Cities_Dataset.csv")
+cities <- rbind(cities2018,cities2019,cities2020) #combining all the datasets into one
+glimpse(cities)
+```
+## NOAA Severe Storm Events
+
+I downloaded the results from the following query* as a CSV from BigQuery.To demonstrate more than one method of obtaining data in R, I converted the CSV to JSON and then extracted the data using JSONLITE. 
+
+It is also possible to get the data directly from BigQuery using the package Bigqueryr, however I unable to successfully obtain the data through this package due to incompatibility with my version of R.
+
+*SQL Query:
+> SELECT *  FROM `bigquery-public-data.noaa_historic_severe_storms.storms_2020`  LIMIT 1000
+
+```{r}
+json <- "https://raw.githubusercontent.com/AtinaKarim/DATA607/master/Storms.json"
+json <- GET(json)
+json <- rawToChar(json$content)
+json <- fromJSON(json)
+JSON <- data.frame(json)
+glimpse(JSON)
+```
+
+# **Scrubbing and Exploring**
+
+## Drop unecessary columns from cities
+
+We will drop columns that we do not need for our analyses such as account number, file name and last update.
+
+```{r}
+cities <- select(cities,-c(`Account Number`,`File Name` ,`Last update` ))
+```
+
+## Emissions by Country
+
+I am particularly interested in understanding what the reported level of greenhouse gas emissions was by country (metric tonnes of CO2) in 2018, 2019 and 2020.
+
+Therefore, I will create a separate dataframe called 'Emissions', that only includes data for the survey questions that prompted the cities to provide their emissions numbers as a response.
+
+In 2018, this was question 7.4b:
+Please provide a breakdown of your GHG emissions by scope. Where values are not available, please use the comment field to indicate the reason why.
+
+
+In 2019 and 2020, question 4.6c prompted the respondents to provide their emissions:
+
+4.6c Please provide a breakdown of your GHG emissions by scope. Where values are not available, please use the comment field to indicate the reason why.
+
+```{r}
+Emissions <- subset(cities,`Question Number` == '4.6c' | (`Question Number` == '7.4b'& `Year Reported to CDP`== '2018'))
+#The response options prompt the respondents to fill in their answers in a response table. The table also lets the respondents provide the breakdown of ghg emissions by scope. We are only interested in obtaining the total emissions #. Thus we will filter the responses accordingly.
+Emissions <- Emissions %>% filter(`Column Name`== 'Total Scope 1 emissions - please ensure this matches the calculated total above'|`Column Name`=='Total Scope 3 emissions'| `Column Name`== 'Total Scope 2 emissions'|`Column Name`== 'Calculated Total Scope 1 emissions')
+Emissions
+```
+## Converting data type from character to numeric
+
+I want to sum the responses to get the breakdown of total emissions by country. Therefore, I will convert the response column from character to numeric. Please note, that this will delete any text responses from this field. Hence, I want to verify that I am not missing out on any important information through a word cloud.
+```{r}
+docs <- Corpus(VectorSource(Emissions$`Response Answer` ))
+inspect(docs)
+toSpace <- content_transformer(function (x , pattern ) gsub(pattern, " ", x))
+docs <- tm_map(docs, toSpace, "/")
+docs <- tm_map(docs, toSpace, "@")
+docs <- tm_map(docs, toSpace, "\\|")
+# Convert the text to lower case
+docs <- tm_map(docs, content_transformer(tolower))
+# Remove numbers
+docs <- tm_map(docs, removeNumbers)
+# Remove english common stopwords
+docs <- tm_map(docs, removeWords, stopwords("english"))
+# Remove punctuations
+docs <- tm_map(docs, removePunctuation)
+# Eliminate extra white spaces
+docs <- tm_map(docs, stripWhitespace)
+# Text stemming
+# docs <- tm_map(docs, stemDocument)
+dtm <- TermDocumentMatrix(docs)
+m <- as.matrix(dtm)
+v <- sort(rowSums(m),decreasing=TRUE)
+d <- data.frame(word = names(v),freq=v)
+head(d, 10)
+set.seed(1234)
+wordcloud(words = d$word, freq = d$freq, min.freq = 1,
+          max.words=200, random.order=FALSE, rot.per=0.35, 
+          colors=brewer.pal(8, "Dark2"))
+```
+
+It seems like applicable is the word that occurs the most in this field. Upon further investigation into the Emissions dataframe, it appears that the word is often part of 'Question not applicable'. Therefore, I will continue to convert the data type for this field.
+```{r, messages=FALSE, warning=FALSE}
+Emissions$`Response Answer` <- as.numeric(Emissions$`Response Answer`)
+```
+
+Now, I'll summarize the responses grouped by country to get the breakdown of total emissions. I am also including a column called Number of Cities (this is our n), since the number of participating cities will impact emissions.
+```{r, warning=FALSE, messages=FALSE}
+Emissions_By_Country <-  Emissions %>%
+  group_by(Country, `Year Reported to CDP`) %>%
+  summarize(total_emissions=sum(`Response Answer`, na.rm=TRUE),Number_of_Cities=length(unique(Organization)))
+```
+Where total emissions=0, we are assuming, these countries did not report. Therefore, we will remove these values
+
+```{r}
+Emissions_By_Country <- Emissions_By_Country %>% filter(total_emissions != 0)
+```
+
+## Total GHG Emissions Reported By Country (2018-2020)
+
+The map below categorizes the countries (that have provided numbers) by emissions, to provide quick insights into which countries reported having the highest GHG emissions (total from 2018-2020). However, while looking at the map, it's important to keep in mind factors such as organizations reporting in a country (higher the number, higher the reported emissions) and consistency of reporting (whether a country reported in all years).
+                        
+```{r,warning=FALSE,messages=FALSE, echo=FALSE}
+## From https://datahub.io/core/geo-countries#r
+download.file("https://datahub.io/core/geo-countries/r/countries.geojson",
+              destfile = "countries.geojson")
+
+## readOGR is a common function to read geojsons, could also use geojsonio's
+world_geojson = readOGR("countries.geojson") 
+saveRDS(world_geojson, "countries_map.rds")
+```
+```{r, echo=FALSE}
+countries = readRDS("/Users/atinakarim/CDP/countries_map.rds")
+agg = countries
+## perform right join to keep all countries available in the cumulative
+## dataset
+agg@data = right_join(agg@data, Emissions_By_Country, by = c('ADMIN' = 'Country'))
+
+## the data is paired to the polygons in nominal order hence, we need to also
+## remove the polygons for which no data is available, otherwise the country matching
+## would not work
+agg@polygons = agg@polygons[countries@data$ADMIN %in% Emissions_By_Country$Country]
+```
+
+```{r, echo =FALSE}
+## define color palette (to be used later)
+library(leaflet)
+pal <- colorNumeric("Blues", NULL)
+## initialise leaflet map by passing the main data object
+leaf_map = leaflet(agg,
+        width = 1040, ## default setting for nice visuals
+        height = 800,
+        ## the options below define the initial coordinates (center)
+        ##, the initial zoom (x2) and the bounds of the map
+        options = leafletOptions(center = c(30,0),
+                                 zoom=2,
+                                 maxBounds = list(c(-90, -180),
+                                                  c(90,180)))
+        )  %>% addTiles() 
+        ## the last step above draw the actual canvas
+```
+
+```{r, echo=FALSE}
+library(ezplot)
+leaf_map = leaf_map%>%
+  addPolygons(stroke = FALSE, 
+              ## ^^ whether to draw the borders of polygons
+              smoothFactor = 0.3,
+              ## ^^ how much to smooth the border line when zooming 
+              fillOpacity = 1,
+              fillColor = ~pal(log10(total_emissions)),
+              ## which values to fill each polygon with
+              ## here, make it proportional to total_cases.
+             label = ~total_emissions
+              ## ^^ add on-hover label for each country, making use of the handy 
+              ## ez_labels to more easily read large numbers
+  ) 
+```
+
+```{r, echo=FALSE}
+leaf_map = leaf_map %>%
+  addLegend(pal = pal,
+            values = ~log10(total_emissions),
+            opacity = 1.0,
+            labFormat = labelFormat(transform = function(x) round(10^x)),
+            title = "Total Emissions"
+)
+leaf_map
+```
+### Ranking GHG Emissions by Country
+
+```{r}
+datatable(Emissions_By_Country)
+```
+The table above provides some interesting insights. We can see that as of 2020, Singapore reported having the highest GHG emissions, followed by the U.S and Indonesia (search for 2020 and sorted total_emissions in descending order). It is worth noting though that the number of participating cities in the U.S have gone up from 21 in 2019 to 144 in 2020. However, Singapore's reported emissions have been on a consistently upward trend.
+
+Another interesting observation is that Canada's reported emissions have gone down significantly from 2019 although the number of participating cities have gone up from 3 to 25. An explanation for this (and something worth looking into further) maybe the widespread implementation of carbon taxes in certain provinces in Canada, with prices rising by $10CAD per metric ton per year.
+
+###
+
+```{r}
+Canada<- subset(Emissions_By_Country,Country=='Canada')
+ggplot(Canada, aes(x = `Year Reported to CDP`, y = total_emissions, colour=`Year Reported to CDP`)) +
+  stat_summary(fun=sum, geom="line") +
+  stat_summary(fun=sum, geom="point") +
+  labs(title="Canada's GHG Emissions By Year ") +
+  ylab('Emissions(Metric Tonnes CO2e') +
+  xlab('Year')
+```
+
+## Climate Hazards
+
+I am also interested in seeing how many of the participating countries reported being at a high risk of facing hazardous conditions.
+
+In 2019 and 2020, Question 2.1 and for 2018, Question 2.2a was:
+
+Please list the most significant climate hazards faced by your city and indicate the probability and consequence of these hazards, as well as the expected future change in frequency and intensity. Please also select the most relevant assets or services that are affected by the climate hazard and provide a description of the impact.
+
+I will subset the cities dataset to only include responses for this question and then filter it further to only include those responses, where the participating countries indicated a high probability of facing climate hazards.
+```{r}
+Climate_Hazards <-subset(cities,(`Question Number` == '2.1' | (`Question Number` == '2.2a'& `Year Reported to CDP`== '2018')))
+Climate_Hazards <- Climate_Hazards %>% filter(`Column Name`=='Probability of hazard'|`Column Name`== 'Current probability of hazard')
+Climate_Hazards_High <- Climate_Hazards %>% filter(`Response Answer`== 'High'|`Response Answer`== ' Medium High')
+Climate_Hazards_High <- Climate_Hazards_High %>% 
+  group_by(Country, `Year Reported to CDP`) %>%
+  summarize(Probability_of_HighHazard=n())
+datatable (Climate_Hazards_High)
+```
+
+### Is there a correlation between climate hazards and GHG emissions by country?
+
+I would like to see if the countries that reported high ghg emissions were also likely to have reported being at a higher risk of facing climate hazards.
+
+```{r}
+df3 <- merge(Climate_Hazards_High,Emissions_By_Country)
+library(GGally)
+df3 %>%
+  select("Probability_of_HighHazard","total_emissions") %>%
+  ggpairs()
+```
+While it seems like that there is almost no correlation between the two,it is important to note that countries that responded to the climate hazards question above, did not necessarily also report their GHG emissions (example-Argentina). 
+
+## Exploring the NOAA Severe Storms Data
+
+The NOAA database particularly looks at storms that took place in the U.S. Let's look at what the top 5 high hazard U.S. states are.
+
+```{r}
+JSON2 <- JSON %>%
+  group_by(state) %>%
+  summarize(Storms=n())
+```
+```{r}
+JSON3 <- JSON2[order(-JSON2$Storms),]
+JSON3 <- JSON3[1:5,]#top 5 states by 
+ggplot(data=JSON3, aes(x=state,y=Storms, fill=state))+geom_col()+geom_text(label=(JSON3$Storms))+
+                                          ggtitle("Number of Storms by State")
+```
+Looks like Texas has had the most number severe storms recently. I would like to further explore and see if these states also reported having high GHG emissions in the CDP questionnaire.
+
+### Filtering the Emissions dataset to only include U.S. Cities
+```{r}
+U.S. <- Emissions %>% filter(Country == 'United States of America')
+```
+### Matching column names and values between the two dataframes
+
+The CDP questionnaire actually only stores the city and country information and not the state level information. Therefore, we will have to join the datasets based on the city name.
+
+It is hence important for the column headers and values to be the same.
+
+```{r, messages=FALSE}
+JSON <- JSON %>% rename(
+  'Organization' = 'cz_name'
+)
+```
+
+In the CDP dataset (U.S.), the name of the city is preceded by 'City Of' (for instance, City of Baltimore). However, the storms data set only lists the city name. Therefore, we will change the values in the CDP data set to only include the city name.
+```{r}
+pattern <- "City of\\s"
+U.S.$Organization <- str_remove(U.S.$Organization,pattern)
+```
+Some of the values in the City name (or Organization) column in the CDP dataset also contain the state name which is preceded by the city name and a comma. Since we do not need the state names for our comparison, we will remove them.
+```{r}
+pattern <- ",\\s\\w*"
+U.S.$Organization <- str_remove(U.S.$Organization,pattern)
+U.S.$Organization <-toupper(U.S.$Organization)
+knitr::kable(U.S.)
+```
+Now that our CDP dataset seems more aligned with the storms data set, we will summarize the values to get total emissions and number of storms by city before joining the two datasets.
+```{r}
+Emissions_by_city <- U.S. %>%
+  group_by(Organization) %>%
+  summarize(total_emissions=sum(`Response Answer`, na.rm=TRUE))
+datatable(Emissions_by_city)
+```
+```{r}
+JSON4 <- JSON %>%
+  group_by(Organization) %>%
+  summarize(Storms=n())
+datatable(JSON4)
+```
+```{r}
+df<- merge(JSON4,Emissions_by_city,by='Organization')
+knitr::kable(df)
+```
+Unfortunately, it seems like there is a lack of data to draw a correlation between the two. 
+
+# **Insights and Recommendations
+
+Some of the major findings of the analysis that would be interesting to further investigate are:
+
+1) Singapore's upward trajectory in terms of reported GHG emissions 
+Recommended Further Investigation: Why this maybe the case
+
+2) Canada's falling GHG emissions 
+Recommended Further Investigation: Exploring potential relationship between rising Carbon Taxes and falling emissions.
+
+While I did attempt to explore the linkage between GHG emissions and Climate Hazards, the lack of sufficient data in the CDP questionnaire made it difficult to do so.In this regard, it is also important to note that the consequences of GHG emissions can often be transnational, and thus location may not be the best parameter for measuring linkages between the two.
+
+As of now, the biggest recommendation to CDP would be to require the participants to report their GHG emissions (instead of leaving this as an optional question). Moreover, if countries are unable to report their numbers, they should provide a reason as to why they are unable to do so. 
+
+
